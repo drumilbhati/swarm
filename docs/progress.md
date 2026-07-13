@@ -4,10 +4,10 @@ This document tracks the design, development milestones, and progress of the Swa
 
 ---
 
-## Today's Achievements (July 10, 2026)
-* **API Boundary Definition**: Established the core abstract interface for the worker telemetry module in `telemetry.go`.
-* **Telemetry Implementation**: Completed the concrete `gopsutil` monitor in `monitor.go` measuring both system-level and process-specific CPU & Memory usage.
-* **Architecture Alignment**: Refined the telemetry implementation to encapsulate PID retrieval (`os.Getpid`) and prevent execution blocks (non-blocking CPU percent querying).
+## Today's Achievements (July 13, 2026)
+* **Decision Engine Implementation**: Completed the concrete `DecisionEngineData` structure in `decisionengine.go` with explicit threshold checking.
+* **Thread Safety**: Integrated `sync.RWMutex` to secure telemetry updates, task counters, and capacity checks across multiple goroutines.
+* **Counter Corrections**: Resolved inverted limits and decrement/increment logic to prevent active task count drift.
 
 ---
 
@@ -17,12 +17,12 @@ This document tracks the design, development milestones, and progress of the Swa
 * [x] Design raw percentage-based resource stats contract (`UsageStats` & `Telemetry` interface).
 * [x] Implement system-wide resource monitoring using `gopsutil`.
 * [x] Implement process-level resource monitoring using `os.Getpid()`.
-* [ ] Verify telemetry output with a mock client script loop.
+* [x] Verify telemetry output with a mock client script loop.
 
 ### Phase 2: Decision Engine (Self-Throttling)
-* [ ] Define the `DecisionEngine` struct to maintain state (concurrency counters, threshold configs, telemetry metrics).
-* [ ] Implement thread-safe capacity status checking (`CanAcceptWork() bool`).
-* [ ] Implement dynamic backpressure rules (slowing down/pausing task ingestion based on resource headroom).
+* [x] Define the `DecisionEngine` struct to maintain state (concurrency counters, threshold configs, telemetry metrics).
+* [x] Implement thread-safe capacity status checking (`CanAcceptWork() bool`).
+* [x] Implement dynamic backpressure rules (slowing down/pausing task ingestion based on resource headroom).
 
 ### Phase 3: Task Executor & Concurrency Control
 * [ ] Design mock task profiles (CPU-bound spin, memory-bound allocator, I/O sleeping task).
@@ -37,5 +37,5 @@ This document tracks the design, development milestones, and progress of the Swa
 ---
 
 ## Current Status & Next Steps
-- **Current Active State**: Telemetry module is complete and verified.
-- **Up Next**: Begin designing the **Decision Engine** state manager to consume these telemetry values and govern task ingestion thresholds.
+- **Current Active State**: Telemetry and Decision Engine modules are complete and verified by unit tests.
+- **Up Next**: Begin designing the **Task Executor** to manage slot allocation and coordinate concurrent task loops.
