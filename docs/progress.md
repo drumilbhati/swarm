@@ -4,10 +4,13 @@ This document tracks the design, development milestones, and progress of the Swa
 
 ---
 
-## Today's Achievements (July 13, 2026)
-* **Decision Engine Implementation**: Completed the concrete `DecisionEngineData` structure in `decisionengine.go` with explicit threshold checking.
-* **Thread Safety**: Integrated `sync.RWMutex` to secure telemetry updates, task counters, and capacity checks across multiple goroutines.
-* **Counter Corrections**: Resolved inverted limits and decrement/increment logic to prevent active task count drift.
+## Today's Achievements (July 14, 2026)
+* **Model 2 Decision Flow**: Aligned the Decision Engine as the central dispatcher. It now accepts tasks, checks resource thresholds, and coordinates async task launch.
+* **Deadlock Resolution**: Refined the Mutex implementation by eliminating internal re-entrant locking in the private `canFit` helper method.
+* **Docker Task Schema**: Created the decoupled `Task` struct containing metadata, command, image, and resource constraints, plus a nested `ResourceRequirement` struct.
+* **Executor Interface**: Defined the abstract `Executor` interface that will wrap the Docker SDK execution handler.
+* **Docker Executor**: Implemented the concrete `DockerExecutor` using the Docker Go SDK to pull images, create sandboxed containers with cgroup resource limits, start execution, and safely clean up resources on exit.
+* **Integrated Compilation**: Wired the `DockerExecutor` to the `DecisionEngine`'s asynchronous dispatch channel and resolved compiler dependency mismatches.
 
 ---
 
@@ -25,9 +28,10 @@ This document tracks the design, development milestones, and progress of the Swa
 * [x] Implement dynamic backpressure rules (slowing down/pausing task ingestion based on resource headroom).
 
 ### Phase 3: Task Executor & Concurrency Control
-* [ ] Design mock task profiles (CPU-bound spin, memory-bound allocator, I/O sleeping task).
-* [ ] Implement worker-side concurrency slot allocation.
-* [ ] Connect the `Executor` to the `DecisionEngine` so that active tasks decrement/increment capacity dynamically.
+* [x] Design task profiles and nested resource requirement schema (`task.go` & `resourcerequirement.go`).
+* [x] Define the abstract `Executor` interface.
+* [x] Install Go Docker SDK and implement the concrete `DockerExecutor`.
+* [x] Hook the `DockerExecutor` up to the `DecisionEngine` to manage container execution limits.
 
 ### Phase 4: Connection & Coordinator (Networking)
 * [ ] Build a simple, memory-based HTTP Task Queue (Coordinator server).
@@ -37,5 +41,5 @@ This document tracks the design, development milestones, and progress of the Swa
 ---
 
 ## Current Status & Next Steps
-- **Current Active State**: Telemetry and Decision Engine modules are complete and verified by unit tests.
-- **Up Next**: Begin designing the **Task Executor** to manage slot allocation and coordinate concurrent task loops.
+- **Current Active State**: Telemetry, Decision Engine, and Executor modules are complete and compile successfully. The worker can execute docker containers under cgroup CPU/Memory limits.
+- **Up Next**: Phase 4 (Connection & Coordinator). Build the Coordinator HTTP server queue and the worker polling loop.

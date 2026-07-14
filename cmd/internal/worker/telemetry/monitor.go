@@ -47,6 +47,8 @@ func (m *Monitor) GetUsage() (UsageStats, error) {
 	}
 	usage.ProcessCPUUsage = processCPU
 
+	usage.TotalSystemMemory = float64(systemMemory.Total)
+
 	return usage, nil
 }
 

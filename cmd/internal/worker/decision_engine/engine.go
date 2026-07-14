@@ -1,15 +1,18 @@
 package decisionengine
 
-import "github.com/drumilbhati/swarm/cmd/internal/worker/telemetry"
+import (
+	"github.com/drumilbhati/swarm/cmd/internal/worker/executor"
+	"github.com/drumilbhati/swarm/cmd/internal/worker/telemetry"
+)
 
 type DecisionEngine interface {
 	// Called by Telemetry
 	UpdateTelemetry(stats telemetry.UsageStats)
 
 	// Called by Connection loop
-	CanAcceptWork() bool
+	canFit(task executor.Task) bool
 
 	// Called by Executor
-	TaskStarted()
-	TaskFinished()
+	Submit(task executor.Task, executor executor.Executor)
+	taskFinished()
 }

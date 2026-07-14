@@ -5,6 +5,7 @@ type UsageStats struct {
 	SystemMemoryUsage  float64
 	ProcessCPUUsage    float64
 	ProcessMemoryUsage float64
+	TotalSystemMemory  float64
 }
 
 type Telemetry interface {

@@ -1,8 +1,10 @@
 package decisionengine
 
 import (
+	"context"
 	"sync"
 
+	"github.com/drumilbhati/swarm/cmd/internal/worker/executor"
 	"github.com/drumilbhati/swarm/cmd/internal/worker/telemetry"
 )
 
@@ -20,39 +22,55 @@ func (d *DecisionEngineData) UpdateTelemetry(stats telemetry.UsageStats) {
 	d.Stats = stats
 }
 
-func (d *DecisionEngineData) CanAcceptWork() bool {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+func (d *DecisionEngineData) canFit(task executor.Task) bool {
 	if d.ActiveTasks >= d.ConcurrencyLimit {
 		return false
 	}
 
-	if d.Threshold.ProcessCPUUsage > 0 && d.Stats.ProcessCPUUsage > d.Threshold.ProcessCPUUsage {
+	if d.Threshold.ProcessCPUUsage > 0 && d.Stats.ProcessCPUUsage+task.ResourceRequirement.RequiredProcessCPU > d.Threshold.ProcessCPUUsage {
 		return false
 	}
 
-	if d.Threshold.ProcessMemoryUsage > 0 && d.Stats.ProcessMemoryUsage > d.Threshold.ProcessMemoryUsage {
+	if d.Threshold.ProcessMemoryUsage > 0 && d.Stats.TotalSystemMemory > 0 {
+		processMemPercent := 100.0 * (task.ResourceRequirement.RequiredProcessMemory) / d.Stats.TotalSystemMemory
+		if d.Stats.ProcessMemoryUsage+processMemPercent > d.Threshold.ProcessMemoryUsage {
+			return false
+		}
+	}
+
+	if d.Threshold.SystemCPUUsage > 0 && d.Stats.SystemCPUUsage+task.ResourceRequirement.RequiredSystemCPU > d.Threshold.SystemCPUUsage {
 		return false
 	}
 
-	if d.Threshold.SystemCPUUsage > 0 && d.Stats.SystemCPUUsage > d.Threshold.SystemCPUUsage {
-		return false
-	}
-
-	if d.Threshold.SystemMemoryUsage > 0 && d.Stats.SystemMemoryUsage > d.Threshold.SystemMemoryUsage {
-		return false
+	if d.Threshold.SystemMemoryUsage > 0 && d.Stats.TotalSystemMemory > 0 {
+		systemMemPercent := 100.0 * (task.ResourceRequirement.RequiredSystemMemory) / d.Stats.TotalSystemMemory
+		if d.Stats.SystemMemoryUsage+systemMemPercent > d.Threshold.SystemMemoryUsage {
+			return false
+		}
 	}
 
 	return true
 }
 
-func (d *DecisionEngineData) TaskStarted() {
+func (d *DecisionEngineData) Submit(task executor.Task, executor executor.Executor) bool {
 	d.mu.Lock()
-	defer d.mu.Unlock()
+	if !d.canFit(task) {
+		d.mu.Unlock()
+		return false
+	}
 	d.ActiveTasks++
+	d.mu.Unlock()
+
+	go func() {
+		defer d.taskFinished()
+
+		executor.Execute(context.Background(), task)
+	}()
+
+	return true
 }
 
-func (d *DecisionEngineData) TaskFinished() {
+func (d *DecisionEngineData) taskFinished() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.ActiveTasks--
