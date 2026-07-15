@@ -35,11 +35,15 @@ This document tracks the design, development milestones, and progress of the Swa
 
 ### Phase 4: Connection & Coordinator (Networking)
 * [ ] Build a simple, memory-based HTTP Task Queue (Coordinator server).
-* [ ] Implement the worker client polling loop (`Connection` module).
+* [ ] Implement capacity-aware polling client (`Connection` module) sending available CPU/RAM headroom.
 * [ ] Wire up the complete pipeline: `Connection` checks `Decision` -> Pulls Task -> Hands to `Executor` -> Updates `Telemetry`.
+
+### Phase 5: Algorithmic & Scale Optimizations (Deferred Tasks)
+* [ ] Optimize Coordinator task matching from $O(N)$ linear search to $O(\log N)$ logarithmic complexity using sorted indexes or multi-dimensional spatial partitioning (e.g. KD-Tree).
+* [ ] Implement task reschedule guarantees (re-enqueueing tasks from workers that disconnect mid-job).
 
 ---
 
 ## Current Status & Next Steps
-- **Current Active State**: Telemetry, Decision Engine, and Executor modules are complete and compile successfully. The worker can execute docker containers under cgroup CPU/Memory limits.
+- **Current Active State**: Telemetry, Decision Engine, and Executor modules are complete. Capacity-aware matchmaking design is aligned.
 - **Up Next**: Phase 4 (Connection & Coordinator). Build the Coordinator HTTP server queue and the worker polling loop.
