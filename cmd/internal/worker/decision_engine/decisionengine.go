@@ -2,6 +2,7 @@ package decisionengine
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	"github.com/drumilbhati/swarm/cmd/internal/worker/executor"
@@ -64,7 +65,13 @@ func (d *DecisionEngineData) Submit(task executor.Task, executor executor.Execut
 	go func() {
 		defer d.taskFinished()
 
-		executor.Execute(context.Background(), task)
+		log.Printf("Starting execution of task %s (image: %s)...", task.ID, task.Image)
+		err := executor.Execute(context.Background(), task)
+		if err != nil {
+			log.Printf("Task %s failed: %v", task.ID, err)
+		} else {
+			log.Printf("Task %s completed successfully", task.ID)
+		}
 	}()
 
 	return true

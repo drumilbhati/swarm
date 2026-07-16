@@ -34,9 +34,9 @@ This document tracks the design, development milestones, and progress of the Swa
 * [x] Hook the `DockerExecutor` up to the `DecisionEngine` to manage container execution limits.
 
 ### Phase 4: Connection & Coordinator (Networking)
-* [ ] Build a simple, memory-based HTTP Task Queue (Coordinator server).
-* [ ] Implement capacity-aware polling client (`Connection` module) sending available CPU/RAM headroom.
-* [ ] Wire up the complete pipeline: `Connection` checks `Decision` -> Pulls Task -> Hands to `Executor` -> Updates `Telemetry`.
+* [x] Build a simple, memory-based HTTP Task Queue (Coordinator server).
+* [x] Implement capacity-aware polling client (`Connection` module) sending available CPU/RAM headroom.
+* [x] Wire up the complete pipeline: Connection checks Decision -> Pulls Task -> Hands to Executor -> Updates Telemetry.
 
 ### Phase 5: Algorithmic & Scale Optimizations (Deferred Tasks)
 * [ ] Optimize Coordinator task matching from $O(N)$ linear search to $O(\log N)$ logarithmic complexity using sorted indexes or multi-dimensional spatial partitioning (e.g. KD-Tree).
@@ -45,5 +45,5 @@ This document tracks the design, development milestones, and progress of the Swa
 ---
 
 ## Current Status & Next Steps
-- **Current Active State**: Telemetry, Decision Engine, and Executor modules are complete. Capacity-aware matchmaking design is aligned.
-- **Up Next**: Phase 4 (Connection & Coordinator). Build the Coordinator HTTP server queue and the worker polling loop.
+- **Current Active State**: Telemetry, Decision Engine, Executor, Connection, and Coordinator modules are completed and unit-tested.
+- **Up Next**: Create the Worker main entrypoint and wire up the complete E2E executable pipeline.

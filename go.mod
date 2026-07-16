@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/docker/docker v25.0.3+incompatible
+	github.com/go-chi/chi v1.5.5
 	github.com/shirou/gopsutil/v4 v4.26.6
 )
 

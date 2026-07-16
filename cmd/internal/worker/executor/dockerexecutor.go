@@ -3,10 +3,12 @@ package executor
 import (
 	"context"
 	"io"
+	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type DockerExecutor struct {
@@ -64,6 +66,15 @@ func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
 	case <-statusCh:
 		// Container exited successfully
 	}
+
+	// Fetch and demultiplex container logs directly to worker stdout/stderr
+	out, err := d.cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 
 	return nil
 }

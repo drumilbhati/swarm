@@ -24,8 +24,10 @@ type Connection struct {
 }
 
 type Headroom struct {
-	AvailableSystemCPU    float64
-	AvailableSystemMemory float64 // in bytes
+	AvailableSystemCPU     float64 `json:"available_system_cpu"`
+	AvailableSystemMemory  float64 `json:"available_system_memory"` // in bytes
+	AvailableProcessCPU    float64 `json:"available_process_cpu"`
+	AvailableProcessMemory float64 `json:"available_process_memory"` // in bytes
 }
 
 func NewConnection(url string, poll time.Duration, tel telemetry.Telemetry, dec *decisionengine.DecisionEngineData, exe executor.Executor) *Connection {
@@ -91,9 +93,22 @@ func (c *Connection) calculateHeadroom(stats telemetry.UsageStats) Headroom {
 		availableMemory = (stats.TotalSystemMemory * freePercent) / 100.0
 	}
 
+	var availableProcessCPU float64
+	if thresholds.ProcessCPUUsage > 0 {
+		availableProcessCPU = thresholds.ProcessCPUUsage - stats.ProcessCPUUsage
+	}
+
+	var availableProcessMemory float64
+	if thresholds.ProcessMemoryUsage > 0 {
+		freePercent := thresholds.ProcessMemoryUsage - stats.ProcessMemoryUsage
+		availableProcessMemory = (stats.TotalSystemMemory * freePercent) / 100.0
+	}
+
 	return Headroom{
-		AvailableSystemCPU:    availableCPU,
-		AvailableSystemMemory: availableMemory,
+		AvailableSystemCPU:     availableCPU,
+		AvailableSystemMemory:  availableMemory,
+		AvailableProcessCPU:    availableProcessCPU,
+		AvailableProcessMemory: availableProcessMemory,
 	}
 }
 
