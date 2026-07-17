@@ -10,7 +10,7 @@ The Swarm architecture utilizes a **Capacity-Aware Matchmaking** design (pivoted
 
 Instead of workers pulling tasks blindly and rejecting them locally, the worker assesses its own available system-level and process-level capacity thresholds. It sends this multi-dimensional available headroom in its polling request to the Coordinator. The Coordinator then searches its task queue and returns the oldest task that fits the worker's reported capacity.
 
-![Worker Design](initial_worker_design.png)
+![Worker Design](worker_design.png)
 
 ---
 

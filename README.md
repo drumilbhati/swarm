@@ -6,44 +6,82 @@ Unlike traditional distributed queues that rely on static concurrency limits, Sw
 
 ---
 
-## Architectural Flow Diagram
+## System Architecture Diagram
 
 ```mermaid
-sequenceDiagram
-    participant Coordinator as Coordinator (HTTP Server)
-    participant Worker as Worker Node (Main)
-    participant Telemetry as Telemetry Monitor
-    participant Engine as Decision Engine
-    participant Executor as Docker Executor
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'background': '#ffffff',
+    'primaryColor': '#f5f5f7',
+    'primaryTextColor': '#1e1e1f',
+    'lineColor': '#515154',
+    'primaryBorderColor': '#d2d2d7',
+    'nodeBorder': '#d2d2d7'
+  }
+}}%%
+graph LR
+    subgraph Clients
+        Client[Client]
+    end
+
+    subgraph CoordinatorPool ["Coordinator Pool (Horizontal Scaling)"]
+        C1[Coordinator 1]
+        C2[Coordinator 2]
+        C3[Coordinator 3]
+    end
+
+    subgraph WorkerPool ["Worker Pool (Work Stealing)"]
+        W1[Worker 1]
+        W2[Worker 2]
+        W3[Worker 3]
+    end
+
+    subgraph WorkerInternal ["Worker Node Component Architecture"]
+        Decision[Decision Engine] <--> |send/recv| Conn[Connection Client]
+        Telemetry[Telemetry Monitor] --> |report| Decision
+        Decision <--> |ask| Exec[Docker Executor]
+    end
+
+    %% Client Routing
+    Client -.-> |send request to a random coordinator| C1
+    Client ===> C2
+    Client -.-> |send request to a random coordinator| C3
+
+    %% Coorindator interconnection representation
+    C1 <--> C2
+    C2 <--> C3
+
+    %% Worker work stealing polling
+    W1 === C1
+    W1 === C2
+    W2 === C2
+    W2 === C3
+    W3 === C1
+    W3 === C3
+
+    %% Component interactions
+    Conn <--> |talk| CoordinatorPool[Coordinator Pool]
+
+    %% VIBRANT STYLING DEFINITIONS
+    style Client fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#ffffff,rx:10px,ry:10px
     
-    rect rgb(240, 240, 240)
-        Note over Worker, Telemetry: 1. Telemetry Monitoring Loop
-        Worker->>Telemetry: GetUsage()
-        Telemetry-->>Worker: System & Process Usage Stats
-    end
+    style C1 fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style C2 fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style C3 fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
 
-    rect rgb(230, 240, 250)
-        Note over Worker, Engine: 2. Capacity Assessment
-        Worker->>Engine: Read Thresholds
-        Worker->>Worker: Calculate available CPU/RAM Headroom
-    end
+    style W1 fill:#0d9488,stroke:#0f766e,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style W2 fill:#0d9488,stroke:#0f766e,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style W3 fill:#0d9488,stroke:#0f766e,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
 
-    rect rgb(250, 240, 230)
-        Note over Worker, Coordinator: 3. Capacity-Aware Matching
-        Worker->>Coordinator: POST /tasks/poll (Sends Headroom JSON)
-        Coordinator->>Coordinator: Query Quadtree (K-Nearest matching query) in O(log N)
-        Coordinator-->>Worker: 200 OK (Task Payload) or 204 NoContent
-    end
+    style Decision fill:#f97316,stroke:#ea580c,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style Conn fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style Telemetry fill:#eab308,stroke:#ca8a04,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
+    style Exec fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#ffffff,rx:8px,ry:8px
 
-    rect rgb(240, 250, 240)
-        Note over Worker, Executor: 4. Sandboxed Execution
-        Worker->>Engine: Submit(Task, Executor)
-        Engine->>Engine: canFit() double-check & Increment ActiveTasks
-        Engine->>Executor: Execute() container asynchronously
-        Executor->>Executor: Pull Docker Image & Create Container with cgroup limits
-        Executor->>Worker: Stream container stdout/stderr live
-        Executor->>Engine: Execution complete -> Decrement ActiveTasks
-    end
+    style CoordinatorPool fill:#faf5ff,stroke:#e9d5ff,stroke-width:1px,stroke-dasharray: 5 5
+    style WorkerPool fill:#f0fdfa,stroke:#ccfbf1,stroke-width:1px,stroke-dasharray: 5 5
+    style WorkerInternal fill:#f8fafc,stroke:#e2e8f0,stroke-width:2px
 ```
 
 ---
