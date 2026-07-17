@@ -38,12 +38,27 @@ This document tracks the design, development milestones, and progress of the Swa
 * [x] Implement capacity-aware polling client (`Connection` module) sending available CPU/RAM headroom.
 * [x] Wire up the complete pipeline: Connection checks Decision -> Pulls Task -> Hands to Executor -> Updates Telemetry.
 
-### Phase 5: Algorithmic & Scale Optimizations (Deferred Tasks)
+### Phase 5: Algorithmic & Scale Optimizations
 * [x] Optimize Coordinator task matching from $O(N)$ linear search to $O(\log N)$ logarithmic complexity using a 2D Spatial Quadtree index.
-* [ ] Implement task reschedule guarantees (re-enqueueing tasks from workers that disconnect mid-job).
+* [x] Implement horizontal Work Stealing / Multi-Coordinator load balancing (dividing lock contention to achieve $5.6\times$ scalability gains).
+
+### Phase 6: Fault Tolerance (Worker Liveness & Rescheduling)
+* [ ] **Worker Heartbeat / Keep-Alive Protocol**
+  * [ ] Implement periodic background heartbeat sender loop in Worker connection client (`POST /workers/heartbeat`).
+  * [ ] Add `/workers/heartbeat` REST API handler in Coordinator controller.
+* [ ] **Coordinator Worker Registry**
+  * [ ] Implement a thread-safe active worker registry inside the Coordinator.
+  * [ ] Track `WorkerID`, `LastSeen` timestamp, and current active task assignments.
+* [ ] **Background Liveness Sweeper**
+  * [ ] Spawn a background loop (goroutine) in Coordinator on startup to sweep active workers.
+  * [ ] Evict workers exceeding the liveness timeout limit (e.g., 10 seconds without a heartbeat).
+* [ ] **Automatic Task Rescheduling**
+  * [ ] Extract unfinished tasks assigned to the evicted/dead worker.
+  * [ ] Re-enqueue the tasks back into the Coordinator's 2D Quadtree queue (`SubmitTask`) for other healthy workers to claim.
+  * [ ] Add E2E unit/integration tests verifying that crashed workers trigger automatic job recovery.
 
 ---
 
 ## Current Status & Next Steps
-- **Current Active State**: Core execution pipelines and spatial Quadtree-based task matching are fully operational, tested, and green.
-- **Up Next**: Implement Task Rescheduling on worker crash (Worker Liveness and Fault Tolerance).
+- **Current Active State**: Core execution pipelines, spatial Quadtree-based task matching, and multi-coordinator work-stealing are fully operational, tested, and documented.
+- **Up Next**: Start Phase 6 by implementing the Worker Heartbeat API and Coordinator active worker registry.
