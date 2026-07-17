@@ -87,7 +87,7 @@ func TestConnection_PollCoordinator_NoContent(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	conn := NewConnection(ts.URL, 100*time.Millisecond, nil, nil, nil)
+	conn := NewConnection([]string{ts.URL}, 100*time.Millisecond, nil, nil, nil)
 	headroom := Headroom{
 		AvailableSystemCPU:    10.0,
 		AvailableSystemMemory: 1024 * 1024,
@@ -119,7 +119,7 @@ func TestConnection_PollCoordinator_TaskFound(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	conn := NewConnection(ts.URL, 100*time.Millisecond, nil, nil, nil)
+	conn := NewConnection([]string{ts.URL}, 100*time.Millisecond, nil, nil, nil)
 	task, found, err := conn.pollCoordinator(context.Background(), Headroom{})
 	if err != nil {
 		t.Fatalf("pollCoordinator failed: %v", err)
@@ -171,7 +171,7 @@ func TestConnection_PollAndSubmit_Integration(t *testing.T) {
 	}
 
 	// 5. Instantiate Connection Client
-	conn := NewConnection(ts.URL, 50*time.Millisecond, mockTel, dec, mockExec)
+	conn := NewConnection([]string{ts.URL}, 50*time.Millisecond, mockTel, dec, mockExec)
 
 	// Execute pollAndSubmit once
 	conn.pollAndSubmit(context.Background())

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -35,13 +36,17 @@ func main() {
 		log.Fatalf("Failed to initialize Docker executor: %v", err)
 	}
 
-	coordinatorURL := os.Getenv("COORDINATOR_URL")
-	if coordinatorURL == "" {
-		coordinatorURL = "http://localhost:8081" // Default port matching the server
+	var urls []string
+	if env := os.Getenv("COORDINATOR_URLS"); env != "" {
+		urls = strings.Split(env, ",")
+	} else if env := os.Getenv("COORDINATOR_URL"); env != "" {
+		urls = strings.Split(env, ",")
+	} else {
+		urls = []string{"http://localhost:8081"}
 	}
 
 	pollInterval := 2 * time.Second
-	conn := connection.NewConnection(coordinatorURL, pollInterval, monitor, engine, exec)
+	conn := connection.NewConnection(urls, pollInterval, monitor, engine, exec)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -55,6 +60,6 @@ func main() {
 		cancel()
 	}()
 
-	log.Printf("Starting Swarm Worker connecting to %s...", coordinatorURL)
+	log.Printf("Starting Swarm Worker connecting to %v...", urls)
 	conn.Start(ctx)
 }

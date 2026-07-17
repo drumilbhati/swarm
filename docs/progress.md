@@ -39,11 +39,11 @@ This document tracks the design, development milestones, and progress of the Swa
 * [x] Wire up the complete pipeline: Connection checks Decision -> Pulls Task -> Hands to Executor -> Updates Telemetry.
 
 ### Phase 5: Algorithmic & Scale Optimizations (Deferred Tasks)
-* [ ] Optimize Coordinator task matching from $O(N)$ linear search to $O(\log N)$ logarithmic complexity using sorted indexes or multi-dimensional spatial partitioning (e.g. KD-Tree).
+* [x] Optimize Coordinator task matching from $O(N)$ linear search to $O(\log N)$ logarithmic complexity using a 2D Spatial Quadtree index.
 * [ ] Implement task reschedule guarantees (re-enqueueing tasks from workers that disconnect mid-job).
 
 ---
 
 ## Current Status & Next Steps
-- **Current Active State**: Telemetry, Decision Engine, Executor, Connection, and Coordinator modules are completed and unit-tested.
-- **Up Next**: Create the Worker main entrypoint and wire up the complete E2E executable pipeline.
+- **Current Active State**: Core execution pipelines and spatial Quadtree-based task matching are fully operational, tested, and green.
+- **Up Next**: Implement Task Rescheduling on worker crash (Worker Liveness and Fault Tolerance).

@@ -35,12 +35,14 @@ Instead of workers pulling tasks blindly and rejecting them locally, the worker 
 
 ### D. Connection Driver (`connection/`)
 * **Role**: Background polling client.
+* **Work Stealing (Horizontal Scaling)**: Supports configuring a list of Coordinator URLs (`coordinatorURLs []string`). During each poll cycle, the worker chooses a random starting offset (distributing load evenly) and queries that coordinator. If that coordinator returns `204 No Content` (no jobs fit) or is unreachable, the worker automatically "steals" by polling the next coordinator in the list until it finds a matching job or has traversed the entire list.
 * **Logic**: Calculates headroom bytes/percentages and sends HTTP POST requests to the Coordinator. Upon pulling a valid task, it delegates execution to the Decision Engine.
 
 ### E. Coordinator (`coordinator/` & `cmd/coordinator`)
-* **Role**: Maintaining the global in-memory queue.
-* **Thread-Safety**: Uses `sync.Mutex` to protect the queue slice from double-dispatching when multiple workers poll simultaneously.
-* **Matchmaking Check**: Iterates through the pending task queue (FIFO order) and evaluates tasks against the worker's reported system and process capacity headroom.
+* **Role**: Maintaining the global task index.
+* **Spatial Indexing**: Replaces the linear slice queue with a 2D Quadtree (`github.com/paulmach/orb/quadtree`). Tasks are mapped as coordinate points where $X = \text{Required System CPU}$ and $Y = \text{Required System Memory}$ (bytes).
+* **Matchmaking Check**: Evaluates worker capacity queries using a capped K-Nearest search (`c.tree.KNearestMatching`) targeting the worker's headroom limits. The search limit $K$ defaults to 50 (configurable via `MAX_TASKS` environment variable) to guarantee true $O(\log N)$ latency and flat memory allocations under load, preventing $O(N)$ degradation when a large worker fits a significant fraction of the queue. The final task is selected from these top $K$ matches using creation timestamps to maintain approximate FIFO fairness.
+* **Thread-Safety**: Uses `sync.Mutex` to protect the underlying Quadtree from concurrency race conditions during parallel polls and task submissions.
 
 ---
 

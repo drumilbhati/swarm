@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -14,9 +15,9 @@ import (
 )
 
 type Connection struct {
-	coordinatorURL string
-	httpClient     *http.Client
-	pollInterval   time.Duration
+	coordinatorURLs []string // Changed to slice of URLs for work stealing
+	httpClient      *http.Client
+	pollInterval    time.Duration
 
 	telemetry telemetry.Telemetry
 	decision  *decisionengine.DecisionEngineData
@@ -30,14 +31,14 @@ type Headroom struct {
 	AvailableProcessMemory float64 `json:"available_process_memory"` // in bytes
 }
 
-func NewConnection(url string, poll time.Duration, tel telemetry.Telemetry, dec *decisionengine.DecisionEngineData, exe executor.Executor) *Connection {
+func NewConnection(urls []string, poll time.Duration, tel telemetry.Telemetry, dec *decisionengine.DecisionEngineData, exe executor.Executor) *Connection {
 	return &Connection{
-		coordinatorURL: url,
-		httpClient:     &http.Client{Timeout: 5 * time.Second},
-		pollInterval:   poll,
-		telemetry:      tel,
-		decision:       dec,
-		exec:           exe,
+		coordinatorURLs: urls,
+		httpClient:      &http.Client{Timeout: 5 * time.Second},
+		pollInterval:    poll,
+		telemetry:       tel,
+		decision:        dec,
+		exec:            exe,
 	}
 }
 
@@ -58,7 +59,7 @@ func (c *Connection) Start(ctx context.Context) {
 func (c *Connection) pollAndSubmit(ctx context.Context) {
 	stats, err := c.telemetry.GetUsage()
 	if err != nil {
-		fmt.Errorf("%v\n", err)
+		fmt.Printf("Telemetry error: %v\n", err)
 		return
 	}
 
@@ -66,7 +67,7 @@ func (c *Connection) pollAndSubmit(ctx context.Context) {
 
 	task, found, err := c.pollCoordinator(ctx, headroom)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Poll error: %v\n", err)
 		return
 	}
 	if !found {
@@ -75,7 +76,7 @@ func (c *Connection) pollAndSubmit(ctx context.Context) {
 
 	accepted := c.decision.Submit(task, c.exec)
 	if !accepted {
-		fmt.Printf("Error: No task found")
+		fmt.Printf("Error: Task submission failed\n")
 	}
 }
 
@@ -118,31 +119,52 @@ func (c *Connection) pollCoordinator(ctx context.Context, headroom Headroom) (ex
 		return executor.Task{}, false, err
 	}
 
-	url := fmt.Sprintf("%s/tasks/poll", c.coordinatorURL)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return executor.Task{}, false, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return executor.Task{}, false, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNoContent {
-		return executor.Task{}, false, nil
+	n := len(c.coordinatorURLs)
+	if n == 0 {
+		return executor.Task{}, false, fmt.Errorf("no coordinator URLs configured")
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return executor.Task{}, false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	// Choose a random starting offset to distribute initial poll requests evenly
+	offset := rand.Intn(n)
+
+	// Work-stealing loop: poll coordinators starting from a random index
+	for i := 0; i < n; i++ {
+		targetIdx := (offset + i) % n
+		coordURL := c.coordinatorURLs[targetIdx]
+
+		url := fmt.Sprintf("%s/tasks/poll", coordURL)
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBytes))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			// Resilient fallback: log warning and try stealing from next coordinator
+			fmt.Printf("Warning: coordinator %s unreachable, attempting steal...\n", coordURL)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNoContent {
+			// No tasks fit on this coordinator: try next coordinator
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			continue
+		}
+
+		var task executor.Task
+		if err := json.NewDecoder(resp.Body).Decode(&task); err != nil {
+			continue
+		}
+
+		// Task successfully claimed!
+		return task, true, nil
 	}
 
-	var task executor.Task
-	if err := json.NewDecoder(resp.Body).Decode(&task); err != nil {
-		return executor.Task{}, false, err
-	}
-
-	return task, true, nil
+	// Checked all coordinators, none had matching pending tasks
+	return executor.Task{}, false, nil
 }

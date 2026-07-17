@@ -26,7 +26,10 @@ func (c *Controller) SubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.coordinator.SubmitTask(task)
+	if err := c.coordinator.SubmitTask(task); err != nil {
+		http.Error(w, "Task exceeds Coordinator capacity limits: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode("Successfully submitted task")
 }
