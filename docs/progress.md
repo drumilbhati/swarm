@@ -57,8 +57,27 @@ This document tracks the design, development milestones, and progress of the Swa
   * [ ] Re-enqueue the tasks back into the Coordinator's 2D Quadtree queue (`SubmitTask`) for other healthy workers to claim.
   * [ ] Add E2E unit/integration tests verifying that crashed workers trigger automatic job recovery.
 
+### Phase 7: Fairness & Reliable Task Delivery
+* [ ] **Task Lease and Acknowledgement Protocol**
+  * [ ] Return a lease ID when a coordinator assigns a task instead of deleting it permanently on poll.
+  * [ ] Add explicit `started`, `completed`, and `failed` acknowledgements from workers.
+  * [ ] Requeue tasks when a worker rejects them, fails to acknowledge them, or their lease expires.
+  * [ ] Make task claiming and acknowledgement idempotent so retries do not execute a task twice unintentionally.
+* [ ] **Starvation Prevention and Aging**
+  * [ ] Add an age-based priority component so long-waiting tasks gradually outrank newer tasks with similar resource fit.
+  * [ ] Periodically scan older pending tasks outside the capped K-nearest candidate set, preserving efficient normal-path matching while preventing indefinite starvation.
+  * [ ] Add configurable maximum wait-time alerts and metrics for pending tasks.
+* [ ] **Oversized and Rarely-Fitting Tasks**
+  * [ ] Detect tasks that cannot fit any registered worker and expose a clear `unschedulable` status instead of silently retrying forever.
+  * [ ] Reserve configurable capacity or provide a separate queue for oversized tasks so small jobs cannot consume all available capacity indefinitely.
+  * [ ] Add tests covering CPU-heavy, memory-heavy, and temporarily unschedulable tasks.
+* [ ] **Multi-Coordinator Fairness**
+  * [ ] Add shared or partition-aware fairness metadata across coordinators.
+  * [ ] Prevent work stealing from repeatedly favoring one coordinator or starving tasks isolated on another coordinator.
+  * [ ] Add end-to-end tests for fairness across multiple coordinators and workers.
+
 ---
 
 ## Current Status & Next Steps
 - **Current Active State**: Core execution pipelines, spatial Quadtree-based task matching, and multi-coordinator work-stealing are fully operational, tested, and documented.
-- **Up Next**: Start Phase 6 by implementing the Worker Heartbeat API and Coordinator active worker registry.
+- **Up Next**: Start Phase 6 by implementing the Worker Heartbeat API and Coordinator active worker registry, then implement Phase 7's lease, acknowledgement, and starvation-prevention mechanisms.
