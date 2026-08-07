@@ -52,17 +52,20 @@ This document tracks the design, development milestones, and progress of the Swa
 * [ ] **Background Liveness Sweeper**
   * [ ] Spawn a background loop (goroutine) in Coordinator on startup to sweep active workers.
   * [ ] Evict workers exceeding the liveness timeout limit (e.g., 10 seconds without a heartbeat).
+* [ ] **Partition Guard 1: Worker-Side Self-Termination (Local Suicide Guard)**
+  * [ ] Track consecutive heartbeat failures in Worker connection client.
+  * [ ] If 3 consecutive heartbeats fail (>9s network loss), automatically trigger local context cancellation and `docker stop` active containers before coordinator eviction.
 * [ ] **Automatic Task Rescheduling**
   * [ ] Extract unfinished tasks assigned to the evicted/dead worker.
   * [ ] Re-enqueue the tasks back into the Coordinator's 2D Quadtree queue (`SubmitTask`) for other healthy workers to claim.
   * [ ] Add E2E unit/integration tests verifying that crashed workers trigger automatic job recovery.
 
 ### Phase 7: Fairness & Reliable Task Delivery
-* [ ] **Task Lease and Acknowledgement Protocol**
-  * [ ] Return a lease ID when a coordinator assigns a task instead of deleting it permanently on poll.
+* [ ] **Partition Guard 2: Coordinator-Side Fencing Tokens & Task Leases**
+  * [ ] Attach a versioned `LeaseID` / `FencingToken` to assigned tasks upon dispatch.
+  * [ ] Increment `LeaseID` whenever a task is evicted and rescheduled to a new worker.
+  * [ ] Make `POST /tasks/complete` reject completion acknowledgements from obsolete lease versions, preventing Zombie worker state corruption.
   * [ ] Add explicit `started`, `completed`, and `failed` acknowledgements from workers.
-  * [ ] Requeue tasks when a worker rejects them, fails to acknowledge them, or their lease expires.
-  * [ ] Make task claiming and acknowledgement idempotent so retries do not execute a task twice unintentionally.
 * [ ] **Starvation Prevention and Aging**
   * [ ] Add an age-based priority component so long-waiting tasks gradually outrank newer tasks with similar resource fit.
   * [ ] Periodically scan older pending tasks outside the capped K-nearest candidate set, preserving efficient normal-path matching while preventing indefinite starvation.
@@ -80,4 +83,4 @@ This document tracks the design, development milestones, and progress of the Swa
 
 ## Current Status & Next Steps
 - **Current Active State**: Core execution pipelines, spatial Quadtree-based task matching, and multi-coordinator work-stealing are fully operational, tested, and documented.
-- **Up Next**: Start Phase 6 by implementing the Worker Heartbeat API and Coordinator active worker registry, then implement Phase 7's lease, acknowledgement, and starvation-prevention mechanisms.
+- **Up Next**: Implement Phase 6 with **Worker-Side Self-Termination Guard** and Phase 7's **Coordinator Fencing Token Guard** to guarantee partition-safe fault tolerance.
