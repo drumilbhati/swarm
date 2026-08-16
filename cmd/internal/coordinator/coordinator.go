@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"sync"
@@ -25,8 +26,9 @@ func (ot OrbTask) Point() orb.Point {
 }
 
 type Coordinator struct {
-	mu   sync.Mutex
-	tree *quadtree.Quadtree
+	mu      sync.Mutex
+	tree    *quadtree.Quadtree
+	workers map[string]time.Time
 }
 
 func NewCoordinator() *Coordinator {
@@ -45,7 +47,8 @@ func NewCoordinator() *Coordinator {
 		Max: orb.Point{maxCPU, maxMemory},
 	}
 	return &Coordinator{
-		tree: quadtree.New(maxBound),
+		tree:    quadtree.New(maxBound),
+		workers: make(map[string]time.Time),
 	}
 }
 
@@ -111,4 +114,33 @@ func (c *Coordinator) SubmitTask(task executor.Task) error {
 		SubmittedAt: time.Now(),
 	})
 	return err
+}
+
+func (c *Coordinator) EvictDeadWorkers(timeout time.Duration) []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	var evicted []string
+	for workerID, lastSeen := range c.workers {
+		if now.Sub(lastSeen) > timeout {
+			delete(c.workers, workerID)
+			evicted = append(evicted, workerID)
+		}
+	}
+	return evicted
+}
+
+func (c *Coordinator) StartLivenessSweeper(ctx context.Context, checkInterval time.Duration, livenessTimeout time.Duration) {
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.EvictDeadWorkers(livenessTimeout)
+		}
+	}
 }

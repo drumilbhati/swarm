@@ -18,6 +18,14 @@ func NewController() *Controller {
 	}
 }
 
+func (c *Controller) GetCoordinator() *Coordinator {
+	return c.coordinator
+}
+
+func (c *Controller) ReceiveHeartBeat(w http.ResponseWriter, r *http.Request) {
+	c.coordinator.ReceiveHeartBeat(w, r)
+}
+
 func (c *Controller) SubmitTask(w http.ResponseWriter, r *http.Request) {
 	var task executor.Task
 
