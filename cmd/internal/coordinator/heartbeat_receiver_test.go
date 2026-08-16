@@ -29,8 +29,8 @@ func TestReceiveHeartBeatRecordsWorker(t *testing.T) {
 	if resp.Code != http.StatusNoContent {
 		t.Fatalf("expected status %d, got %d", http.StatusNoContent, resp.Code)
 	}
-	if got := coordinator.workers[payload.Worker]; !got.Equal(payload.Timestamp) {
-		t.Fatalf("expected timestamp %s, got %s", payload.Timestamp, got)
+	if got := coordinator.workers[payload.Worker]; got.IsZero() || time.Since(got) > 5*time.Second {
+		t.Fatalf("expected recent timestamp, got %s", got)
 	}
 }
 

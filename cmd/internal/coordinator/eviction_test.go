@@ -51,14 +51,22 @@ func TestStartLivenessSweeper_Integration(t *testing.T) {
 	// Start sweeper checking every 30ms with 100ms timeout limit
 	go coord.StartLivenessSweeper(ctx, 30*time.Millisecond, 100*time.Millisecond)
 
-	// Wait for sweeper cycle to trigger
-	time.Sleep(100 * time.Millisecond)
+	// Bounded polling for missing worker eviction until deadline
+	deadline := time.Now().Add(1 * time.Second)
+	evicted := false
 
-	coord.mu.Lock()
-	_, exists := coord.workers["worker-timeout"]
-	coord.mu.Unlock()
+	for time.Now().Before(deadline) {
+		coord.mu.Lock()
+		_, exists := coord.workers["worker-timeout"]
+		coord.mu.Unlock()
+		if !exists {
+			evicted = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
-	if exists {
+	if !evicted {
 		t.Fatalf("Expected worker-timeout to be evicted by background Liveness Sweeper")
 	}
 }

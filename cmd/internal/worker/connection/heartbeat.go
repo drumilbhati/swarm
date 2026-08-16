@@ -32,25 +32,35 @@ func (c *Connection) SubmitHeartBeat(ctx context.Context) (heartbeat.Payload, bo
 		return heartbeat.Payload{}, false, fmt.Errorf("no coordinator URLs configured")
 	}
 
+	delivered := true
+	anyAttempted := false
+
 	for _, coordinatorURL := range c.coordinatorURLs {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(coordinatorURL, "/")+"/heartbeat", bytes.NewReader(jsonBytes))
 		if err != nil {
+			delivered = false
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
+			delivered = false
 			continue
 		}
 		resp.Body.Close()
 
-		if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
-			return hb, true, nil
+		anyAttempted = true
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			delivered = false
 		}
 	}
 
-	return hb, false, nil
+	if !anyAttempted {
+		delivered = false
+	}
+
+	return hb, delivered, nil
 }
 
 func workerID() (string, error) {

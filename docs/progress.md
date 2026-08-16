@@ -41,11 +41,11 @@ This document tracks the design, development milestones, and progress of the Swa
 
 ### Phase 6: Fault Tolerance (Worker Liveness & Rescheduling)
 * [x] **Worker Heartbeat / Keep-Alive Protocol**
-  * [x] Implement periodic background heartbeat sender loop in Worker connection client (`POST /workers/heartbeat`).
-  * [x] Add `/workers/heartbeat` REST API handler in Coordinator controller.
+  * [x] Implement periodic background heartbeat sender loop in Worker connection client (`POST /heartbeat`).
+  * [x] Add `/heartbeat` REST API handler in Coordinator controller.
 * [x] **Coordinator Worker Registry**
   * [x] Implement a thread-safe active worker registry inside the Coordinator.
-  * [x] Track `WorkerID`, `LastSeen` timestamp, and current active task assignments.
+  * [x] Track `WorkerID` and `LastSeen` timestamp.
 * [x] **Background Liveness Sweeper**
   * [x] Spawn a background loop (goroutine) in Coordinator on startup to sweep active workers.
   * [x] Evict workers exceeding the liveness timeout limit (e.g., 10 seconds without a heartbeat).
