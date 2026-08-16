@@ -43,6 +43,8 @@ func NewConnection(urls []string, poll time.Duration, tel telemetry.Telemetry, d
 }
 
 func (c *Connection) Start(ctx context.Context) {
+	go c.heartbeatLoop(ctx)
+
 	ticker := time.NewTicker(c.pollInterval)
 	defer ticker.Stop()
 
@@ -52,6 +54,22 @@ func (c *Connection) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			c.pollAndSubmit(ctx)
+		}
+	}
+}
+
+func (c *Connection) heartbeatLoop(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if _, delivered, err := c.SubmitHeartBeat(ctx); err != nil || !delivered {
+				fmt.Printf("Heartbeat error: %v\n", err)
+			}
 		}
 	}
 }
