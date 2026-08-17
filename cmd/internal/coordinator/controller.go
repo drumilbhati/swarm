@@ -49,7 +49,7 @@ func (c *Controller) MatchTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, found := c.coordinator.MatchTask(workerHeadroom)
+	task, found := c.coordinator.MatchTask(workerHeadroom, r.URL.Hostname())
 	if !found {
 		w.WriteHeader(http.StatusNoContent)
 		return

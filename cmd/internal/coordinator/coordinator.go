@@ -26,9 +26,10 @@ func (ot OrbTask) Point() orb.Point {
 }
 
 type Coordinator struct {
-	mu      sync.Mutex
-	tree    *quadtree.Quadtree
-	workers map[string]time.Time
+	mu          sync.Mutex
+	tree        *quadtree.Quadtree
+	workers     map[string]time.Time
+	workerTasks map[string][]executor.Task
 }
 
 func NewCoordinator() *Coordinator {
@@ -47,12 +48,13 @@ func NewCoordinator() *Coordinator {
 		Max: orb.Point{maxCPU, maxMemory},
 	}
 	return &Coordinator{
-		tree:    quadtree.New(maxBound),
-		workers: make(map[string]time.Time),
+		tree:        quadtree.New(maxBound),
+		workers:     make(map[string]time.Time),
+		workerTasks: make(map[string][]executor.Task),
 	}
 }
 
-func (c *Coordinator) MatchTask(workerHeadroom connection.Headroom) (executor.Task, bool) {
+func (c *Coordinator) MatchTask(workerHeadroom connection.Headroom, workerId string) (executor.Task, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -100,6 +102,9 @@ func (c *Coordinator) MatchTask(workerHeadroom connection.Headroom) (executor.Ta
 		c.tree.Remove(*bestTask, func(p orb.Pointer) bool {
 			return p.(OrbTask).Task.ID == bestTask.Task.ID
 		})
+	}
+	if workerId != "" {
+		c.workerTasks[workerId] = append(c.workerTasks[workerId], bestTask.Task)
 		return bestTask.Task, true
 	}
 	return executor.Task{}, false
@@ -140,7 +145,24 @@ func (c *Coordinator) StartLivenessSweeper(ctx context.Context, checkInterval ti
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			c.EvictDeadWorkers(livenessTimeout)
+			evicted := c.EvictDeadWorkers(livenessTimeout)
+			if len(evicted) > 0 {
+				c.RetrieveTasks(evicted)
+			}
 		}
+	}
+}
+
+func (c *Coordinator) RetrieveTasks(evicted []string) {
+	c.mu.Lock()
+	var tasksToReque []executor.Task
+	for _, id := range evicted {
+		tasksToReque = append(tasksToReque, c.workerTasks[id]...)
+		delete(c.workerTasks, id)
+	}
+	c.mu.Unlock()
+
+	for _, t := range tasksToReque {
+		_ = c.SubmitTask(t)
 	}
 }
