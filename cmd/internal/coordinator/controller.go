@@ -49,7 +49,12 @@ func (c *Controller) MatchTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, found := c.coordinator.MatchTask(workerHeadroom)
+	workerID := r.Header.Get("X-Worker-ID")
+	if workerID == "" {
+		workerID = r.Header.Get("Worker-ID")
+	}
+
+	task, found := c.coordinator.MatchTask(workerHeadroom, workerID)
 	if !found {
 		w.WriteHeader(http.StatusNoContent)
 		return

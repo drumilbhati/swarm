@@ -23,14 +23,30 @@ func NewDockerExecutor() (*DockerExecutor, error) {
 	return &DockerExecutor{cli}, nil
 }
 
-func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
-	reader, err := d.cli.ImagePull(ctx, task.Image, types.ImagePullOptions{})
-	if err != nil {
-		return err
-	}
+func (d *DockerExecutor) Ping(ctx context.Context) error {
+	_, err := d.cli.Ping(ctx)
+	return err
+}
 
-	defer reader.Close()
-	io.Copy(io.Discard, reader) // Wait for the download to finish
+func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
+	_, _, err := d.cli.ImageInspectWithRaw(ctx, task.Image)
+	if err != nil {
+		if !client.IsErrNotFound(err) {
+			return err
+		}
+		// Image not present locally, pull from registry
+		reader, err := d.cli.ImagePull(ctx, task.Image, types.ImagePullOptions{})
+		if err != nil {
+			return err
+		}
+		if _, copyErr := io.Copy(io.Discard, reader); copyErr != nil {
+			_ = reader.Close()
+			return copyErr
+		}
+		if closeErr := reader.Close(); closeErr != nil {
+			return closeErr
+		}
+	}
 
 	resp, err := d.cli.ContainerCreate(ctx,
 		&container.Config{

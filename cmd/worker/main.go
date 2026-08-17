@@ -61,5 +61,5 @@ func main() {
 	}()
 
 	log.Printf("Starting Swarm Worker connecting to %v...", urls)
-	conn.Start(ctx)
+	conn.Start(ctx, cancel)
 }

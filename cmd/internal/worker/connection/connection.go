@@ -18,6 +18,7 @@ type Connection struct {
 	coordinatorURLs []string // Changed to slice of URLs for work stealing
 	httpClient      *http.Client
 	pollInterval    time.Duration
+	failCount       int
 
 	telemetry telemetry.Telemetry
 	decision  *decisionengine.DecisionEngineData
@@ -42,8 +43,8 @@ func NewConnection(urls []string, poll time.Duration, tel telemetry.Telemetry, d
 	}
 }
 
-func (c *Connection) Start(ctx context.Context) {
-	go c.heartbeatLoop(ctx)
+func (c *Connection) Start(ctx context.Context, cancel context.CancelFunc) {
+	go c.heartbeatLoop(ctx, cancel)
 
 	ticker := time.NewTicker(c.pollInterval)
 	defer ticker.Stop()
@@ -58,8 +59,8 @@ func (c *Connection) Start(ctx context.Context) {
 	}
 }
 
-func (c *Connection) heartbeatLoop(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Second)
+func (c *Connection) heartbeatLoop(ctx context.Context, cancel context.CancelFunc) {
+	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -67,8 +68,19 @@ func (c *Connection) heartbeatLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if _, delivered, err := c.SubmitHeartBeat(ctx); err != nil || !delivered {
-				fmt.Printf("Heartbeat error: %v\n", err)
+			_, delivered, err := c.SubmitHeartBeat(ctx)
+			if err != nil || !delivered {
+				c.failCount++
+				fmt.Printf("Heartbeat error (consecutive failures: %d): %v\n", c.failCount, err)
+				if c.failCount >= 3 {
+					fmt.Println("CRITICAL: Partition Guard 1 triggered! 3 consecutive heartbeats failed. Self-terminating worker...")
+					if cancel != nil {
+						cancel()
+					}
+					return
+				}
+			} else {
+				c.failCount = 0
 			}
 		}
 	}
