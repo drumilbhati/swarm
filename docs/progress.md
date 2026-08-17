@@ -5,7 +5,8 @@ This document tracks the design, development milestones, and progress of the Swa
 ---
 
 ## Today's Achievements (August 17, 2026)
-* **Partition Guard 1 (Worker Self-Termination)**: Implemented 3-consecutive-failure tracking in Worker `heartbeatLoop`. Lost network connectivity triggers local context cancellation and container shutdown before coordinator eviction threshold.
+
+* **Partition Guard 1 (Worker Self-Termination)**: Implemented 3-consecutive-failure tracking in Worker `heartbeatLoop`. Lost network connectivity triggers local context cancellation at the configured 9s guard deadline.
 * **Task-Worker Assignment & Automatic Rescheduling**: Implemented `workerTasks` map in Coordinator. Evicted workers trigger `RetrieveTasks` to automatically re-enqueue orphaned tasks back into the 2D Quadtree queue (`SubmitTask`) for healthy workers to claim. Verified via `TestTaskRescheduling_OnWorkerEviction`.
 * **Docker Container Execution Optimization**: Implemented `IfNotPresent` local image inspection in `DockerExecutor`, reducing per-container job processing latency from `3.53s` down to **`217ms`** ($16.2\times$ speedup, $4.6$ container jobs/sec).
 * **Job Dispatch Benchmark Matrix**: Verified HTTP E2E dispatch latencies under varying queue sizes ($18.6\ \mu\text{s}$ at 1,000 jobs, $410\ \mu\text{s}$ at 1,000,000 jobs).
@@ -52,7 +53,7 @@ This document tracks the design, development milestones, and progress of the Swa
   * [x] Evict workers exceeding the liveness timeout limit (e.g., 10 seconds without a heartbeat).
 * [x] **Partition Guard 1: Worker-Side Self-Termination (Local Suicide Guard)**
   * [x] Track consecutive heartbeat failures in Worker connection client.
-  * [x] If 3 consecutive heartbeats fail (>9s network loss), automatically trigger local context cancellation and `docker stop` active containers before coordinator eviction.
+  * [x] If 3 consecutive heartbeats fail (9s network loss), automatically trigger local context cancellation and `docker stop` active containers.
 * [x] **Automatic Task Rescheduling**
   * [x] Extract unfinished tasks assigned to the evicted/dead worker.
   * [x] Re-enqueue the tasks back into the Coordinator's 2D Quadtree queue (`SubmitTask`) for other healthy workers to claim.

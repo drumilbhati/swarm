@@ -60,7 +60,7 @@ func (c *Connection) Start(ctx context.Context, cancel context.CancelFunc) {
 }
 
 func (c *Connection) heartbeatLoop(ctx context.Context, cancel context.CancelFunc) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	for {

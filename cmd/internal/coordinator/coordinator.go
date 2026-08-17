@@ -99,15 +99,37 @@ func (c *Coordinator) MatchTask(workerHeadroom connection.Headroom, workerId str
 	}
 
 	if bestTask != nil {
+		if workerId != "" && len(c.workers) > 0 {
+			if _, registered := c.workers[workerId]; !registered {
+				// Unregistered worker: preserve task in Quadtree
+				return executor.Task{}, false
+			}
+		}
 		c.tree.Remove(*bestTask, func(p orb.Pointer) bool {
 			return p.(OrbTask).Task.ID == bestTask.Task.ID
 		})
-	}
-	if workerId != "" {
-		c.workerTasks[workerId] = append(c.workerTasks[workerId], bestTask.Task)
+		if workerId != "" {
+			c.workerTasks[workerId] = append(c.workerTasks[workerId], bestTask.Task)
+		}
 		return bestTask.Task, true
 	}
 	return executor.Task{}, false
+}
+
+func (c *Coordinator) CompleteTask(workerID, taskID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	tasks, exists := c.workerTasks[workerID]
+	if !exists {
+		return
+	}
+	for i, t := range tasks {
+		if t.ID == taskID {
+			c.workerTasks[workerID] = append(tasks[:i], tasks[i+1:]...)
+			break
+		}
+	}
 }
 
 func (c *Coordinator) SubmitTask(task executor.Task) error {

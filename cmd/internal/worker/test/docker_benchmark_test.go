@@ -9,6 +9,8 @@ import (
 	"github.com/drumilbhati/swarm/cmd/internal/worker/executor"
 )
 
+const pinnedAlpineImage = "alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
+
 func TestRealDockerTask_Execution(t *testing.T) {
 	// 1. Instantiate real Docker SDK Executor
 	dockerExec, err := executor.NewDockerExecutor()
@@ -16,11 +18,16 @@ func TestRealDockerTask_Execution(t *testing.T) {
 		t.Skipf("Skipping real Docker test: Docker daemon not available or unreachable: %v", err)
 	}
 
+	// Probe daemon readiness
+	if err := dockerExec.Ping(context.Background()); err != nil {
+		t.Skipf("Skipping real Docker test: Docker daemon ping failed: %v", err)
+	}
+
 	// 2. Define real containerized task with cgroup NanoCPUs & Memory limits
 	task := executor.Task{
 		ID:    "real-docker-task-1",
 		Type:  executor.TaskIO,
-		Image: "alpine:latest",
+		Image: pinnedAlpineImage,
 		Cmd:   []string{"echo", "Swarm Real Docker Task Success!"},
 		ResourceRequirement: executor.ResourceRequirement{
 			RequiredSystemCPU:    0.2,               // 0.2 CPU Cores
@@ -48,6 +55,11 @@ func BenchmarkRealDockerTask_Execution(b *testing.B) {
 		b.Skipf("Skipping real Docker benchmark: Docker daemon not available: %v", err)
 	}
 
+	// Probe daemon readiness
+	if err := dockerExec.Ping(context.Background()); err != nil {
+		b.Skipf("Skipping real Docker benchmark: Docker daemon ping failed: %v", err)
+	}
+
 	b.ResetTimer()
 	b.ReportAllocs()
 
@@ -55,7 +67,7 @@ func BenchmarkRealDockerTask_Execution(b *testing.B) {
 		task := executor.Task{
 			ID:    fmt.Sprintf("bench-docker-task-%d", i),
 			Type:  executor.TaskIO,
-			Image: "alpine:latest",
+			Image: pinnedAlpineImage,
 			Cmd:   []string{"sh", "-c", "echo benchmark"},
 			ResourceRequirement: executor.ResourceRequirement{
 				RequiredSystemCPU:    0.1,
