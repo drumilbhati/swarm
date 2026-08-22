@@ -5,7 +5,6 @@ Swarm is a lightweight, distributed task execution framework designed for orches
 Unlike traditional distributed queues that rely on static concurrency limits, Swarm agents utilize real-time local telemetry to dynamically throttle or scale execution capacity. It implements **Capacity-Aware Matchmaking** using a **2D Spatial Quadtree index** (`github.com/paulmach/orb/quadtree`). Workers report their current resource headroom (CPU and Memory) to the Coordinator, which executes a spatial boundary query to prune the queue in $O(\log N)$ average time, dispatching the oldest fitting task and protecting node stability from Out-of-Memory (OOM) crashes.
 
 ---
-
 ## System Architecture Diagram
 
 ```mermaid
