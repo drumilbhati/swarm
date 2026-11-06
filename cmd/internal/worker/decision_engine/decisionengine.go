@@ -53,7 +53,7 @@ func (d *DecisionEngineData) canFit(task executor.Task) bool {
 	return true
 }
 
-func (d *DecisionEngineData) Submit(task executor.Task, executor executor.Executor) bool {
+func (d *DecisionEngineData) Submit(task executor.Task, executor executor.Executor, done func(executor.Result, error)) bool {
 	d.mu.Lock()
 	if !d.canFit(task) {
 		d.mu.Unlock()
@@ -66,7 +66,13 @@ func (d *DecisionEngineData) Submit(task executor.Task, executor executor.Execut
 		defer d.taskFinished()
 
 		log.Printf("Starting execution of task %s (image: %s)...", task.ID, task.Image)
-		err := executor.Execute(context.Background(), task)
+		result, err := executor.Execute(context.Background(), task)
+		if err != nil {
+			result.Error = err.Error()
+		}
+		if done != nil {
+			done(result, err)
+		}
 		if err != nil {
 			log.Printf("Task %s failed: %v", task.ID, err)
 		} else {

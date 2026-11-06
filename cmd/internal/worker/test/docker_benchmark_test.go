@@ -30,7 +30,7 @@ func TestRealDockerTask_Execution(t *testing.T) {
 		Image: pinnedAlpineImage,
 		Cmd:   []string{"echo", "Swarm Real Docker Task Success!"},
 		ResourceRequirement: executor.ResourceRequirement{
-			RequiredSystemCPU:    0.2,               // 0.2 CPU Cores
+			RequiredSystemCPU:    0.2,              // 0.2 CPU Cores
 			RequiredSystemMemory: 64 * 1024 * 1024, // 64 MB RAM limit
 		},
 	}
@@ -40,9 +40,12 @@ func TestRealDockerTask_Execution(t *testing.T) {
 	defer cancel()
 
 	// 3. Execute container via Docker Go SDK
-	err = dockerExec.Execute(ctx, task)
+	result, err := dockerExec.Execute(ctx, task)
 	if err != nil {
 		t.Fatalf("Real Docker task execution failed: %v", err)
+	}
+	if result.Output == "" {
+		t.Fatal("expected container output")
 	}
 
 	elapsed := time.Since(start)
@@ -76,7 +79,7 @@ func BenchmarkRealDockerTask_Execution(b *testing.B) {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		if err := dockerExec.Execute(ctx, task); err != nil {
+		if _, err := dockerExec.Execute(ctx, task); err != nil {
 			cancel()
 			b.Fatalf("Docker task execution failed at iter %d: %v", i, err)
 		}

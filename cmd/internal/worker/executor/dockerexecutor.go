@@ -1,9 +1,9 @@
 package executor
 
 import (
+	"bytes"
 	"context"
 	"io"
-	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -28,23 +28,23 @@ func (d *DockerExecutor) Ping(ctx context.Context) error {
 	return err
 }
 
-func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
+func (d *DockerExecutor) Execute(ctx context.Context, task Task) (Result, error) {
 	_, _, err := d.cli.ImageInspectWithRaw(ctx, task.Image)
 	if err != nil {
 		if !client.IsErrNotFound(err) {
-			return err
+			return Result{}, err
 		}
 		// Image not present locally, pull from registry
 		reader, err := d.cli.ImagePull(ctx, task.Image, types.ImagePullOptions{})
 		if err != nil {
-			return err
+			return Result{}, err
 		}
 		if _, copyErr := io.Copy(io.Discard, reader); copyErr != nil {
 			_ = reader.Close()
-			return copyErr
+			return Result{}, copyErr
 		}
 		if closeErr := reader.Close(); closeErr != nil {
-			return closeErr
+			return Result{}, closeErr
 		}
 	}
 
@@ -62,7 +62,7 @@ func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
 		nil, nil, "",
 	)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	// Cleanup
@@ -71,14 +71,14 @@ func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
 	// Start the container
 	err = d.cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	// Wait for the container to stop running
 	statusCh, errCh := d.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
-		return err
+		return Result{}, err
 	case <-statusCh:
 		// Container exited successfully
 	}
@@ -86,11 +86,13 @@ func (d *DockerExecutor) Execute(ctx context.Context, task Task) error {
 	// Fetch and demultiplex container logs directly to worker stdout/stderr
 	out, err := d.cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 	defer out.Close()
 
-	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
-
-	return nil
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, out); err != nil {
+		return Result{}, err
+	}
+	return Result{Output: stdout.String() + stderr.String()}, nil
 }

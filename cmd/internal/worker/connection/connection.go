@@ -32,6 +32,29 @@ type Headroom struct {
 	AvailableProcessMemory float64 `json:"available_process_memory"` // in bytes
 }
 
+func (c *Connection) reportResult(ctx context.Context, taskID string, result executor.Result) error {
+	body, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	for _, base := range c.coordinatorURLs {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/tasks/%s/result", base, taskID), bytes.NewReader(body))
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return nil
+		}
+	}
+	return fmt.Errorf("no coordinator accepted result")
+}
+
 func NewConnection(urls []string, poll time.Duration, tel telemetry.Telemetry, dec *decisionengine.DecisionEngineData, exe executor.Executor) *Connection {
 	return &Connection{
 		coordinatorURLs: urls,
@@ -104,7 +127,11 @@ func (c *Connection) pollAndSubmit(ctx context.Context) {
 		return
 	}
 
-	accepted := c.decision.Submit(task, c.exec)
+	accepted := c.decision.Submit(task, c.exec, func(result executor.Result, err error) {
+		if reportErr := c.reportResult(context.Background(), task.ID, result); reportErr != nil {
+			fmt.Printf("Result report failed for %s: %v\\n", task.ID, reportErr)
+		}
+	})
 	if !accepted {
 		fmt.Printf("Error: Task submission failed\n")
 	}

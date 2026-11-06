@@ -202,3 +202,16 @@ To run the full unit and integration test suite:
 ```bash
 go test -v ./...
 ```
+
+### Submit workloads with the client TUI
+Create a `.env` file in the repository root (or the directory where you run the client):
+```env
+COORDINATOR_URL=http://localhost:8081
+```
+Then launch the interactive client and enter the task details when prompted:
+```bash
+go run ./cmd/client
+```
+The client submits the workload to the coordinator's `/tasks` endpoint. Resource
+memory values are specified in bytes. The coordinator URL can also be provided
+through the `COORDINATOR_URL` environment variable.

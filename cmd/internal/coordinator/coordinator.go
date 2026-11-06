@@ -18,6 +18,13 @@ type OrbTask struct {
 	SubmittedAt time.Time
 }
 
+type TaskResult struct {
+	TaskID      string    `json:"task_id"`
+	Output      string    `json:"output"`
+	Error       string    `json:"error,omitempty"`
+	CompletedAt time.Time `json:"completed_at"`
+}
+
 func (ot OrbTask) Point() orb.Point {
 	return orb.Point{
 		ot.Task.ResourceRequirement.RequiredSystemCPU,
@@ -30,6 +37,7 @@ type Coordinator struct {
 	tree        *quadtree.Quadtree
 	workers     map[string]time.Time
 	workerTasks map[string][]executor.Task
+	results     map[string]TaskResult
 }
 
 func NewCoordinator() *Coordinator {
@@ -51,7 +59,31 @@ func NewCoordinator() *Coordinator {
 		tree:        quadtree.New(maxBound),
 		workers:     make(map[string]time.Time),
 		workerTasks: make(map[string][]executor.Task),
+		results:     make(map[string]TaskResult),
 	}
+}
+
+func (c *Coordinator) StoreResult(taskID string, result TaskResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result.TaskID = taskID
+	result.CompletedAt = time.Now().UTC()
+	c.results[taskID] = result
+	for worker, tasks := range c.workerTasks {
+		for i, task := range tasks {
+			if task.ID == taskID {
+				c.workerTasks[worker] = append(tasks[:i], tasks[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+func (c *Coordinator) Result(taskID string) (TaskResult, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	r, ok := c.results[taskID]
+	return r, ok
 }
 
 func (c *Coordinator) MatchTask(workerHeadroom connection.Headroom, workerId string) (executor.Task, bool) {

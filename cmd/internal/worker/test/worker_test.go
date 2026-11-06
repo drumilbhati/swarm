@@ -16,10 +16,10 @@ type MockExecutor struct {
 	ExecuteCalled chan bool
 }
 
-func (m *MockExecutor) Execute(ctx context.Context, task executor.Task) error {
+func (m *MockExecutor) Execute(ctx context.Context, task executor.Task) (executor.Result, error) {
 	m.ExecuteCalled <- true
 	time.Sleep(100 * time.Millisecond) // Simulate task execution time
-	return nil
+	return executor.Result{Output: "ok"}, nil
 }
 
 func TestWorkerPipeline_Integration(t *testing.T) {
@@ -52,7 +52,7 @@ func TestWorkerPipeline_Integration(t *testing.T) {
 		Image: "alpine",
 		Cmd:   []string{"echo", "hello"},
 		ResourceRequirement: executor.ResourceRequirement{
-			RequiredSystemCPU:    0.1, // 0.1% CPU
+			RequiredSystemCPU:    0.1,              // 0.1% CPU
 			RequiredSystemMemory: 10 * 1024 * 1024, // 10MB RAM in bytes
 		},
 	}
@@ -62,7 +62,7 @@ func TestWorkerPipeline_Integration(t *testing.T) {
 	}
 
 	// 5. Submit the task through the Decision Engine
-	accepted := engine.Submit(task, mockExec)
+	accepted := engine.Submit(task, mockExec, nil)
 	if !accepted {
 		t.Fatal("Expected task to be accepted by the Decision Engine")
 	}
@@ -109,12 +109,12 @@ func TestWorkerPipeline_Throttling(t *testing.T) {
 	task := executor.Task{ID: "task-1"}
 
 	// 1. First task should be accepted
-	if !engine.Submit(task, mockExec) {
+	if !engine.Submit(task, mockExec, nil) {
 		t.Fatal("Expected first task to be accepted")
 	}
 
 	// 2. Second task should be rejected immediately because active tasks == limit
-	if engine.Submit(task, mockExec) {
+	if engine.Submit(task, mockExec, nil) {
 		t.Fatal("Expected second task to be rejected due to concurrency limit")
 	}
 
@@ -123,7 +123,7 @@ func TestWorkerPipeline_Throttling(t *testing.T) {
 	time.Sleep(150 * time.Millisecond) // Wait for task Finished defer to trigger
 
 	// 3. Third task should be accepted again now that the active slot is free
-	if !engine.Submit(task, mockExec) {
+	if !engine.Submit(task, mockExec, nil) {
 		t.Fatal("Expected third task to be accepted after first task completed")
 	}
 }

@@ -25,6 +25,8 @@ func main() {
 	go c.GetCoordinator().StartLivenessSweeper(ctx, 3*time.Second, 10*time.Second)
 
 	r.Post("/tasks", c.SubmitTask)
+	r.Post("/tasks/{taskID}/result", c.SubmitResult)
+	r.Get("/tasks/{taskID}/result", c.GetResult)
 	r.Post("/tasks/poll", c.MatchTask)
 	r.Post("/heartbeat", c.ReceiveHeartBeat)
 

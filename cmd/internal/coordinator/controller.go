@@ -6,10 +6,33 @@ import (
 
 	"github.com/drumilbhati/swarm/cmd/internal/worker/connection"
 	"github.com/drumilbhati/swarm/cmd/internal/worker/executor"
+	"github.com/go-chi/chi"
 )
 
 type Controller struct {
 	coordinator *Coordinator
+}
+
+func (c *Controller) SubmitResult(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskID")
+	var result TaskResult
+	if taskID == "" || json.NewDecoder(r.Body).Decode(&result) != nil {
+		http.Error(w, "invalid task result", http.StatusBadRequest)
+		return
+	}
+	c.coordinator.StoreResult(taskID, result)
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (c *Controller) GetResult(w http.ResponseWriter, r *http.Request) {
+	taskID := chi.URLParam(r, "taskID")
+	result, ok := c.coordinator.Result(taskID)
+	if !ok {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func NewController() *Controller {

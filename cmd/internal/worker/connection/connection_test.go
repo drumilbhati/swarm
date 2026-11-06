@@ -28,10 +28,10 @@ type MockExecutor struct {
 	ExecuteCalled    chan bool
 }
 
-func (m *MockExecutor) Execute(ctx context.Context, task executor.Task) error {
+func (m *MockExecutor) Execute(ctx context.Context, task executor.Task) (executor.Result, error) {
 	m.LastExecutedTask = task
 	m.ExecuteCalled <- true
-	return nil
+	return executor.Result{Output: "ok"}, nil
 }
 
 func TestConnection_CalculateHeadroom(t *testing.T) {
